@@ -1,0 +1,6 @@
+
+# Secrets — never commit
+.env
+*.pem
+*_api_key
+openrouter*
