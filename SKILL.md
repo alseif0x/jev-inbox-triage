@@ -1,5 +1,5 @@
 ---
-name: Jev inbox triage
+name: jev-inbox-triage
 description: >-
   Use this when running an on-demand work board or briefing (dónde estoy /
   briefing / tablero / qué toca), batch-triaging Chat/mail/calendar/Odoo/PRs so
@@ -23,8 +23,16 @@ Optional — OpenRouter Decisions:
 - Model: `typesafe/jev-1.13`
 - Auth: Bearer `OPENROUTER_API_KEY`
 
-Keep each call small; batch items sequentially or in a short loop. See `adapters/typesafe-native.yaml`.
+One `state` per call. Keep each call small and run items in a short loop. Give every call a **timeout (5 s)** and retry **once** on timeout or 5xx; on a second failure, fall back for that item as described under *Failure modes*. See `adapters/typesafe-native.yaml` and `reference/jev.mjs`.
 
+## What leaves the machine
+
+Every `state` is sent to a third-party classifier. Treat it as an outbound message:
+
+- `state` is a **short factual summary the host writes** (who, what, status) — never a raw thread dump, never attachments, never message bodies beyond what the decision needs.
+- Strip before sending: credentials, tokens, links carrying tokens, account or card numbers, and anything the user marked confidential.
+- The pre-send guard is the exception: it sends the **full draft text**, because that is what it rates. Say so in the pre-authorization view.
+- For a client or thread the user has marked sensitive, skip Jev and put the item on the board as `profundizar` by hand. No score is invented.
 
 ## Collect items (thread-level, not every ping)
 
@@ -38,7 +46,11 @@ Gather a short list of **inbox items** for today / recent window:
 
 Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → one ticket item + optional calendar note).
 
-## Questions schema — inbox item
+## Two phases per item
+
+Effort and executor tier only mean something for items that will be deepened, so they are not asked until `depth` says so. Phase A runs for every item; Phase B only for `profundizar`. A board of 15 items with 3 to deepen makes 18 calls instead of 15 five-question calls, and the classifier never has to answer a question whose premise is false.
+
+### Phase A — depth, lane, urgency (every item)
 
 ```json
 {
@@ -54,23 +66,25 @@ Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → o
   "bot": {
     "type": "choice",
     "instructions": "Which specialist lane fits best? (label only — Master deepens unless the user asks to involve a specialist)",
-    "criteria": {
-      "master": "Cross-cutting coordination / meeting / triage",
-      "webforms": "Webforms / helpdesk / plantillas",
-      "ambici": "AMBici / mobility",
-      "zigurat": "Zigurat web",
-      "tea": "TEA / DI-TEA",
-      "personal": "Personal life only"
-    }
+    "criteria": { "…": "lanes from adapters/lanes.yaml" }
   },
   "urgency": {
     "type": "score",
     "instructions": "Urgency for the user in the current work window",
     "criteria": ["Later", "Today", "First thing / blocking"]
-  },
+  }
+}
+```
+
+The `bot` criteria are the host’s lanes, kept in [`adapters/lanes.yaml`](./adapters/lanes.yaml) so the recipe stays generic and the lane list stays yours. Copy that map into the question verbatim.
+
+### Phase B — effort and executor tier (`profundizar` only)
+
+```json
+{
   "effort": {
     "type": "choice",
-    "instructions": "If depth is profundizar, how deep should the executor go? If not profundizar, prefer rapido.",
+    "instructions": "How deep should the executor go on this item?",
     "criteria": {
       "rapido": "1–2 targeted tool calls; short answer or next-step line",
       "a_fondo": "Full context: ticket/mail/code as needed, concrete plan or draft"
@@ -78,7 +92,7 @@ Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → o
   },
   "executor_tier": {
     "type": "choice",
-    "instructions": "If depth is profundizar, which executor class should the host run? If not profundizar, prefer fast. The host maps this to a concrete model (see ORCHESTRATION.md).",
+    "instructions": "Which executor class should the host run? The host maps this to a concrete model (see ORCHESTRATION.md).",
     "criteria": {
       "fast": "Light deepen; short factual next step",
       "default": "Normal deepen with tools",
@@ -88,11 +102,27 @@ Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → o
 }
 ```
 
+Send the same `state` as Phase A. Items that are not `profundizar` get no Phase B and no effort/tier on the board.
+
 `state` for each item: source label + short factual context (who, what, status). Prefer thread/ticket state over isolated messages. **Profundizar** = needs a concrete next action now, not “message is long”.
+
+## Read the confidence, not just the label
+
+Every answer comes with `confidence` and, for `choice`/`score`, `probabilities`. A `depth` of `ignorar` at 0.34 with `profundizar` at 0.33 is not a decision; it is a coin toss with a label on it. The rules below turn the README’s “bias to profundizar” into something a reader can check:
+
+| Signal | Rule |
+|--------|------|
+| `depth.confidence < 0.60` | Escalate one step: `ignorar` → `anotar`, `anotar` → `profundizar`. |
+| `depth.probabilities.profundizar ≥ 0.30` | Never `ignorar`; the floor is `anotar`. |
+| `verdict = enviar` and `confidence < 0.70` | Treat as `retocar`. |
+| `verdict = no_mandar` | Never downgraded, whatever the confidence. |
+| `bot.confidence < 0.50` | Show the lane as tentative; the deepen pass may correct it. |
+
+Escalation only ever moves **toward** doing the work, never away from it. Mark escalated items on the board (e.g. `anotar↑`) so the user can see where the filter was unsure. The thresholds are starting points; tune them after a few boards, and change them in one place (`reference/jev.mjs`).
 
 ## Output to the user
 
-1. **Board** — compact table: item, depth, bot, urgency, **effort**, **executor_tier** (for profundizar)
+1. **Board** — compact table: item, depth, bot, urgency, and for `profundizar` also **effort** and **executor_tier**. Mark escalations.
 2. **Deepen only `profundizar`** — host maps `executor_tier` → concrete model (Codex / Claude / Grok / Kimi adapters in `ORCHESTRATION.md`), then opens tools; respect `rapido` vs `a_fondo` (no auto handoff to specialist bots)
 3. **`anotar`** — one line on the board; do not open heavy context
 4. **`ignorar`** — omit from narrative or fold into a quiet “filtered N” count
@@ -133,9 +163,9 @@ Never auto-send. When a reply is warranted:
 }
 ```
 
-`state` = recipients + purpose + full draft text (and one-line ticket context if any).
+`state` = recipients + purpose + full draft text (and one-line ticket context if any). This is the one call that sends full text off the machine; the pre-authorization view says so.
 
-3. Show **pre-authorization** to the user (widget or connector draft) including Jev verdict
+3. Show **pre-authorization** to the user (widget or connector draft) including Jev verdict and confidence
 4. Send only after explicit approve / edit+confirm
 
 ## Orchestration
@@ -145,6 +175,8 @@ Jev classifies; the **host** routes. See [ORCHESTRATION.md](./ORCHESTRATION.md) 
 ## Failure modes
 
 - Missing `TYPESAFE_API_KEY` (or OpenRouter key if that backend is used) → say so; fall back to a short manual board without inventing Jev scores
+- Timeout or 5xx after the one retry → that item goes on the board as `profundizar` with a `sin Jev` mark; do not drop it and do not guess its depth
+- Answer missing a question, or a label outside the criteria → same as a failed call; never coerce a bad answer into a valid one
 - Bad bot label on thin state → correct in the deepen pass; do not re-ask the user
 - Never send mail/chat unasked; deepening may draft, not send
 - `effort=a_fondo` / `executor_tier=strong` is not permission to hand off to another bot or to send outbound mail

@@ -1,0 +1,15 @@
+# Specialist lanes for the `bot` question in Phase A.
+#
+# These are the host's own lanes, not part of the recipe: SKILL.md stays
+# generic and this file carries what is specific to one inbox. Copy the map
+# under `criteria` into the question verbatim (choice criteria are a map of
+# option -> rubric description).
+#
+# A lane is a label for the board. It never hands the item off on its own.
+criteria:
+  master: "Cross-cutting coordination / meeting / triage"
+  webforms: "Webforms / helpdesk / plantillas"
+  ambici: "AMBici / mobility"
+  zigurat: "Zigurat web"
+  tea: "TEA / DI-TEA"
+  personal: "Personal life only"

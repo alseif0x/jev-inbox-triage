@@ -33,10 +33,15 @@ See [adapters/typesafe-native.yaml](./adapters/typesafe-native.yaml) and [docs.t
 
 ## Schema field (`profundizar`)
 
+`executor_tier` is a **Phase B** question: it is asked only after Phase A has
+returned `profundizar` (after confidence gating), with the same `state`. Items
+that stay `ignorar` or `anotar` never carry a tier, so the question has no
+"if not profundizar" branch to explain.
+
 ```json
 "executor_tier": {
   "type": "choice",
-  "instructions": "If depth is profundizar, which executor class should run? If not profundizar, prefer fast.",
+  "instructions": "Which executor class should the host run? The host maps this to a concrete model.",
   "criteria": {
     "fast": "Short factual next step; light tools",
     "default": "Normal deepen with tools",
@@ -44,6 +49,10 @@ See [adapters/typesafe-native.yaml](./adapters/typesafe-native.yaml) and [docs.t
   }
 }
 ```
+
+If Phase B fails after its retry, the host deepens anyway with `a_fondo` /
+`default`: depth was already decided, and a lost tier hint must not cost the
+item its deepen.
 
 Typical combinations:
 
@@ -122,10 +131,18 @@ routing:
 3. `bot` is a lane label, not an automatic handoff.
 4. Missing API key → manual board; do not invent scores.
 5. Model maps live in the **host/adapter**, not inside Jev.
+6. Confidence gating only escalates. Nothing below a threshold ever becomes
+   *less* work; a weak `enviar` becomes `retocar`, a `no_mandar` stays.
+7. A failed or malformed answer is a failed call: the item goes on the board
+   as `profundizar` marked `sin Jev`, never coerced into a valid label.
 
 ## How to test
 
-1. Noise item → `ignorar`
+Rules 6–7 and the two-phase flow are fixtures in `reference/jev.test.mjs`
+(`node --test reference/jev.test.mjs`, no network). Against the live service:
+
+1. Noise item → `ignorar` with high confidence, no Phase B call
 2. FYI → `anotar`
-3. Ticket with a clear action → `profundizar` + `fast` or `default`
+3. Ticket with a clear action → `profundizar`, then Phase B → `fast` or `default`
 4. Ambiguous / client-sensitive → `strong` + pre-send if there is a draft
+5. A deliberately thin state → low confidence; the board must show the escalation mark

@@ -1,6 +1,9 @@
-﻿# Secrets — never commit
+# Secrets — never commit
 .env
+.env.*
 *.pem
-*_api_key
-openrouter_api_key
-TYPESAFE_API_KEY
+*.key
+*.secret
+
+# Local scratch
+node_modules/
