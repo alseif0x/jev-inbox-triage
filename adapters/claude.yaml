@@ -1,0 +1,7 @@
+classifier:
+  provider: openrouter
+  model: typesafe/jev-1.13
+routing:
+  fast: claude-sonnet
+  default: claude-sonnet
+  strong: claude-opus

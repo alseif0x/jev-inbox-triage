@@ -1,0 +1,7 @@
+classifier:
+  provider: openrouter
+  model: typesafe/jev-1.13
+routing:
+  fast: kimi-fast
+  default: kimi
+  strong: kimi-thinking

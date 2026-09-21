@@ -61,10 +61,19 @@ Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → o
   },
   "effort": {
     "type": "choice",
-    "instructions": "If depth is profundizar, how deep should Master go? If not profundizar, prefer rapido.",
+    "instructions": "If depth is profundizar, how deep should the executor go? If not profundizar, prefer rapido.",
     "criteria": {
       "rapido": "1–2 targeted tool calls; short answer or next-step line",
       "a_fondo": "Full context: ticket/mail/code as needed, concrete plan or draft"
+    }
+  },
+  "executor_tier": {
+    "type": "choice",
+    "instructions": "If depth is profundizar, which executor class should the host run? If not profundizar, prefer fast. The host maps this to a concrete model (see ORCHESTRATION.md).",
+    "criteria": {
+      "fast": "Light deepen; short factual next step",
+      "default": "Normal deepen with tools",
+      "strong": "Hard reasoning, multi-file, or ambiguous client risk"
     }
   }
 }
@@ -74,8 +83,8 @@ Cap roughly 8–15 items. Deduplicate (e.g. same ticket in mail + calendar → o
 
 ## Output to the user
 
-1. **Board** — compact table: item, depth, bot, urgency, **effort** (for profundizar)
-2. **Deepen only `profundizar`** — Master opens tools; respect `rapido` vs `a_fondo` (no auto handoff to specialist bots)
+1. **Board** — compact table: item, depth, bot, urgency, **effort**, **executor_tier** (for profundizar)
+2. **Deepen only `profundizar`** — host maps `executor_tier` → concrete model (Codex / Claude / Grok / Kimi adapters in `ORCHESTRATION.md`), then opens tools; respect `rapido` vs `a_fondo` (no auto handoff to specialist bots)
 3. **`anotar`** — one line on the board; do not open heavy context
 4. **`ignorar`** — omit from narrative or fold into a quiet “filtered N” count
 
@@ -120,9 +129,13 @@ Never auto-send. When a reply is warranted:
 3. Show **pre-authorization** to the user (widget or connector draft) including Jev verdict
 4. Send only after explicit approve / edit+confirm
 
+## Orchestration
+
+Jev classifies; the **host** routes. See [ORCHESTRATION.md](./ORCHESTRATION.md) for `executor_tier` → model maps (Codex, Claude, Grok, Kimi). Do not replace Jev with another classifier.
+
 ## Failure modes
 
 - Missing OpenRouter key → say so; fall back to a short manual board without inventing Jev scores
 - Bad bot label on thin state → correct in the deepen pass; do not re-ask the user
 - Never send mail/chat unasked; deepening may draft, not send
-- `effort=a_fondo` is not permission to hand off to another bot or to send outbound mail
+- `effort=a_fondo` / `executor_tier=strong` is not permission to hand off to another bot or to send outbound mail

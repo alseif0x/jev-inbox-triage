@@ -1,0 +1,8 @@
+# Codex host — classifier is always Jev; map tiers to your enabled model IDs
+classifier:
+  provider: openrouter
+  model: typesafe/jev-1.13
+routing:
+  fast: gpt-5-mini
+  default: gpt-5
+  strong: o3

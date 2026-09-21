@@ -41,6 +41,12 @@ Riesgo (el de “¿y si el barato se equivoca?”): se mitiga con state factual 
 
 La inversa (agente caro todo → Jev solo decide si escalar) también es válida; esta skill implementa el prefiltro barato.
 
+## Orquestación (modelo concreto)
+
+Tras `profundizar`, Jev también puede devolver `executor_tier`: `fast` | `default` | `strong`.
+
+Eso **no** lo ejecuta Jev: el host lo mapea a un modelo (Codex / Claude / Grok / Kimi). Detalle y ejemplos: [ORCHESTRATION.md](./ORCHESTRATION.md).
+
 ## Secrets
 
 ```bash
@@ -54,6 +60,7 @@ Copia `SKILL.md` a la carpeta de workflows/skills de tu agente.
 ## Archivos
 
 - `SKILL.md` — receta operativa (schemas + reglas)
+- `ORCHESTRATION.md` — router Jev → modelo (ejemplos Codex/Claude/Grok/Kimi)
 - `README.md` — este overview
 
 ## License
