@@ -79,9 +79,9 @@ else:
 # adapters/claude.yaml
 classifier: typesafe/jev-1.13
 routing:
-  fast:    claude-sonnet       # lane rápida del host
-  default: claude-sonnet       # default del proyecto
-  strong:  claude-opus         # máximo razonamiento
+  fast:    claude-opus LOW     # lane rápida del host
+  default: claude-opus high    # default del proyecto
+  strong:  claude-fable medium # máximo razonamiento
 ```
 
 ```text

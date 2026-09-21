@@ -1,7 +1,14 @@
+# Claude host — classifier is always Jev; map tiers to model + effort
 classifier:
   provider: openrouter
   model: typesafe/jev-1.13
 routing:
-  fast: claude-sonnet
-  default: claude-sonnet
-  strong: claude-opus
+  fast:
+    model: claude-opus
+    effort: low
+  default:
+    model: claude-opus
+    effort: high
+  strong:
+    model: claude-fable
+    effort: medium
