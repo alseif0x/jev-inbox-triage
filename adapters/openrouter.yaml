@@ -1,0 +1,7 @@
+# Optional: OpenRouter Decisions path (same Jev model family)
+classifier:
+  provider: openrouter
+  model: typesafe/jev-1.13
+  auth:
+    env: OPENROUTER_API_KEY
+# Prefer adapters/typesafe-native.yaml when you have a TypeSafe key.

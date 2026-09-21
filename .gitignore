@@ -1,6 +1,6 @@
-
-# Secrets — never commit
+﻿# Secrets — never commit
 .env
 *.pem
 *_api_key
-openrouter*
+openrouter_api_key
+TYPESAFE_API_KEY
