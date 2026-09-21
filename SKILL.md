@@ -12,10 +12,19 @@ Cheap typed filter before deep LLM/tool work. Jev is **not** a substitute for th
 
 ## Model / API
 
-- OpenRouter Decisions API: `POST https://openrouter.ai/api/alpha/decisions`
+Preferred — **TypeSafe native** ([docs](https://docs.typesafe.ai/introduction)):
+
+- `POST https://api.typesafe.ai/v1/systemone`
+- Model: `jev-latest`
+- Auth: Bearer `TYPESAFE_API_KEY` (never commit the key)
+
+Optional — OpenRouter Decisions:
+
 - Model: `typesafe/jev-1.13`
-- Auth: Bearer token from env `OPENROUTER_API_KEY` (never commit the key; load from a local secret store)
-- Keep each call small; batch items sequentially or in a short loop
+- Auth: Bearer `OPENROUTER_API_KEY`
+
+Keep each call small; batch items sequentially or in a short loop. See `adapters/typesafe-native.yaml`.
+
 
 ## Collect items (thread-level, not every ping)
 
@@ -135,7 +144,7 @@ Jev classifies; the **host** routes. See [ORCHESTRATION.md](./ORCHESTRATION.md) 
 
 ## Failure modes
 
-- Missing OpenRouter key → say so; fall back to a short manual board without inventing Jev scores
+- Missing `TYPESAFE_API_KEY` (or OpenRouter key if that backend is used) → say so; fall back to a short manual board without inventing Jev scores
 - Bad bot label on thin state → correct in the deepen pass; do not re-ask the user
 - Never send mail/chat unasked; deepening may draft, not send
 - `effort=a_fondo` / `executor_tier=strong` is not permission to hand off to another bot or to send outbound mail

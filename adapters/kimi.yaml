@@ -1,6 +1,7 @@
 classifier:
-  provider: openrouter
-  model: typesafe/jev-1.13
+  provider: typesafe  # preferred; see typesafe-native.yaml
+  model: jev-latest
+  # fallback: openrouter / typesafe/jev-1.13
 routing:
   fast: kimi-fast
   default: kimi

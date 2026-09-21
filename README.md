@@ -1,67 +1,80 @@
 # Jev inbox triage
 
-Skill para Grok Bot / Cursor: **Jev** (`typesafe/jev-1.13` vía OpenRouter Decisions) actúa como **prefiltro tipado** antes de gastar el agente caro.
+Grok Bot / Cursor **skill**: use **Jev** (TypeSafe System One) as a **typed prefilter** before spending a costly agent.
 
-La skill no ejecuta trabajo. Solo decide **profundidad** (y, en borradores, si está listo para enviar).
+The skill does not do the work. It only decides **depth** (and, for drafts, send readiness).
 
-## Qué hace exactamente
+Classifier backends:
 
-### 1. Triage del tablero
+1. **TypeSafe native API** (recommended) — `POST https://api.typesafe.ai/v1/systemone` with `TYPESAFE_API_KEY` ([docs](https://docs.typesafe.ai/introduction))
+2. **OpenRouter Decisions** — `typesafe/jev-1.13` with `OPENROUTER_API_KEY` (legacy / optional)
 
-Cuando pides *dónde estoy* / briefing / tablero:
+## What it does
 
-1. El agente host recoge ~8–15 ítems recientes (Calendar, Gmail work, Chat, Odoo, PRs opcionales), a nivel de hilo/ticket.
-2. Por cada uno manda a **Jev** un `state` corto (quién, qué, estado) + un schema tipado.
-3. Jev responde:
+### 1. Board triage
+
+When you ask *dónde estoy* / briefing / board:
+
+1. The host agent collects ~8–15 recent items (Calendar, work Gmail, Chat, Odoo, optional PRs) at thread/ticket level.
+2. For each item it sends Jev a short `state` (who, what, status) + a typed schema.
+3. Jev returns:
    - `depth`: `ignorar` | `anotar` | `profundizar`
-   - `bot`: label de lane (orientación; **sin** handoff automático)
+   - `bot`: lane label (orientation only; **no** auto-handoff)
    - `urgency`
-   - si profundiza: `effort` → `rapido` | `a_fondo`
-4. El host muestra el tablero y **solo abre tools/contexto** en `profundizar`, respetando el effort.
+   - if deepen: `effort` → `rapido` | `a_fondo`
+   - if deepen: `executor_tier` → `fast` | `default` | `strong`
+4. The host shows the board and **only opens tools/context** on `profundizar`, respecting effort and mapping `executor_tier` → a concrete executor model.
 
 ### 2. Pre-send (mail / Chat)
 
-1. El host redacta el draft.
-2. Jev valora: `enviar` | `retocar` | `no_mandar` (+ riesgo + si falta info).
-3. Se muestra el veredicto al usuario.
-4. **Nunca** auto-send: solo se manda tras autorización explícita.
+1. Host drafts the message.
+2. Jev rates: `enviar` | `retocar` | `no_mandar` (+ risk + missing info).
+3. Show the verdict to the user.
+4. **Never** auto-send — only after explicit authorization.
 
-## Qué no hace
+## What it does not do
 
-- No sustituye al agente principal.
-- No lanza subagentes solo.
-- No manda mensajes.
-- No ve el inbox completo: solo `state` corto por ítem.
+- Replace the main agent
+- Launch subagents on its own
+- Send messages
+- See the full inbox — only a short `state` per item
 
-## Por qué barato-primero
+## Why cheap-first
 
-Objetivo: no mandar al modelo caro ruido, FYIs o cosas sin acción ahora.
+Goal: do not send noise, FYIs, or no-action items to the expensive model.
 
-Riesgo (el de “¿y si el barato se equivoca?”): se mitiga con state factual corto, sesgo a `profundizar` cuando hay acción concreta, tablero visible, y humano en cualquier send.
+Risk (“what if the cheap classifier is wrong?”): mitigated with short factual state, bias to `profundizar` when there is a concrete action, a visible board, and a human on every send.
 
-La inversa (agente caro todo → Jev solo decide si escalar) también es válida; esta skill implementa el prefiltro barato.
+The inverse (expensive agent always-on → Jev only decides whether to escalate) is also valid; this skill implements the cheap prefilter.
 
-## Orquestación (modelo concreto)
+## Orchestration (concrete model)
 
-Tras `profundizar`, Jev también puede devolver `executor_tier`: `fast` | `default` | `strong`.
+After `profundizar`, Jev can return `executor_tier`: `fast` | `default` | `strong`.
 
-Eso **no** lo ejecuta Jev: el host lo mapea a un modelo (Codex / Claude / Grok / Kimi). Detalle y ejemplos: [ORCHESTRATION.md](./ORCHESTRATION.md).
+Jev does **not** run that model — the **host** maps the tier (Codex / Claude / Grok / Kimi). See [ORCHESTRATION.md](./ORCHESTRATION.md).
 
 ## Secrets
 
 ```bash
-export OPENROUTER_API_KEY=...   # nunca lo commits
+# Preferred — TypeSafe native
+export TYPESAFE_API_KEY=...
+
+# Optional — OpenRouter Decisions
+export OPENROUTER_API_KEY=...
 ```
+
+Never commit API keys.
 
 ## Install
 
-Copia `SKILL.md` a la carpeta de workflows/skills de tu agente.
+Copy `SKILL.md` into your agent’s workflows/skills folder.
 
-## Archivos
+## Files
 
-- `SKILL.md` — receta operativa (schemas + reglas)
-- `ORCHESTRATION.md` — router Jev → modelo (ejemplos Codex/Claude/Grok/Kimi)
-- `README.md` — este overview
+- `SKILL.md` — operational recipe (schemas + rules)
+- `ORCHESTRATION.md` — Jev → executor model router (Codex / Claude / Grok / Kimi)
+- `adapters/` — host maps + TypeSafe native vs OpenRouter
+- `README.md` — this overview
 
 ## License
 

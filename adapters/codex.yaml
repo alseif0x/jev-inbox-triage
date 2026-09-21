@@ -1,7 +1,8 @@
 # Codex host — classifier is always Jev; map tiers to model + effort
 classifier:
-  provider: openrouter
-  model: typesafe/jev-1.13
+  provider: typesafe  # preferred; see typesafe-native.yaml
+  model: jev-latest
+  # fallback: openrouter / typesafe/jev-1.13
 routing:
   fast:
     model: gpt-5.6

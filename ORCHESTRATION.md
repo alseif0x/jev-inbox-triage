@@ -1,28 +1,37 @@
-# Orquestación: Jev decide → el host elige modelo
+# Orchestration: Jev decides → host picks the model
 
-La skill es el **harness** (gate tipado + reglas). Esta capa es **orquestación**: tras Jev, el host mapea `executor_tier` (y `effort`) a un modelo concreto y solo entonces ejecuta.
+The skill is the **harness** (typed gate + rules). This layer is **orchestration**: after Jev, the host maps `executor_tier` (and `effort`) to a concrete model and only then executes.
 
 ```
-inbox item (state corto)
+inbox item (short state)
         │
         ▼
-   Jev (clasificador)
+   Jev (classifier)
         │
-        ├─ ignorar  → nada
-        ├─ anotar   → una línea en el tablero
+        ├─ ignorar  → nothing
+        ├─ anotar   → one line on the board
         └─ profundizar
               │
               ├─ executor_tier + effort
               ▼
-        router del host
+        host router
               │
               ▼
-     modelo / subagente concreto
+     concrete model / subagent
 ```
 
-Jev **no** ejecuta. Solo clasifica.
+Jev **does not** execute. It only classifies.
 
-## Campo nuevo en el schema (`profundizar`)
+## Classifier backends
+
+| Backend | Endpoint | Auth | Model |
+|---------|----------|------|-------|
+| **TypeSafe native** (preferred) | `POST https://api.typesafe.ai/v1/systemone` | `TYPESAFE_API_KEY` | `jev-latest` |
+| OpenRouter Decisions (optional) | OpenRouter Decisions API | `OPENROUTER_API_KEY` | `typesafe/jev-1.13` |
+
+See [adapters/typesafe-native.yaml](./adapters/typesafe-native.yaml) and [docs.typesafe.ai](https://docs.typesafe.ai/introduction).
+
+## Schema field (`profundizar`)
 
 ```json
 "executor_tier": {
@@ -36,97 +45,87 @@ Jev **no** ejecuta. Solo clasifica.
 }
 ```
 
-Combinación típica:
+Typical combinations:
 
-| depth        | effort   | executor_tier | Qué hace el host                          |
-|--------------|----------|---------------|-------------------------------------------|
-| ignorar      | —        | —             | Omitir                                    |
-| anotar       | —        | —             | Una línea                                 |
-| profundizar  | rapido   | fast          | 1–2 tools, modelo ligero                  |
-| profundizar  | a_fondo  | default       | Contexto completo, modelo estándar        |
-| profundizar  | a_fondo  | strong        | Caso duro, modelo más capaz / más budget  |
+| depth | effort | executor_tier | Host action |
+|-------|--------|---------------|-------------|
+| ignorar | — | — | Skip |
+| anotar | — | — | One line |
+| profundizar | rapido | fast | 1–2 tools, light model |
+| profundizar | a_fondo | default | Full context, standard model |
+| profundizar | a_fondo | strong | Hard case, stronger model / more budget |
 
-Pre-send **no** elige modelo de envío: solo `enviar|retocar|no_mandar`. El draft lo escribe el executor que ya corría; el humano autoriza.
+Pre-send does **not** choose a send model: only `enviar|retocar|no_mandar`. The draft is written by the executor that already ran; a human authorizes.
 
-## Ejemplos de mapa por host
+## Host maps (examples)
 
-Sustituye los IDs por los que tu cuenta tenga habilitados. La idea es el **mapa**, no el slug exacto.
+Replace IDs with ones enabled on your account. The point is the **map**, not the exact slug.
 
-### Codex (OpenAI Codex CLI / agente)
+### Codex
 
 ```yaml
 # adapters/codex.yaml
-classifier: typesafe/jev-1.13   # OpenRouter Decisions — fijo
+classifier: typesafe native (jev-latest)
 routing:
-  fast:    gpt-5.6 luna high   # lane rápida Codex
-  default: gpt-5.6 luna max    # turno normal del agente
-  strong:  astra low           # máximo / reasoning lane
+  fast:    gpt-5.6 luna high
+  default: gpt-5.6 luna max
+  strong:  astra low
 ```
 
-Pseudocódigo:
-
 ```text
-verdict = jev.decide(state, schema)
+verdict = jev.decide(state, schema)   # native or OpenRouter
 if verdict.depth != profundizar: board_only(verdict)
 else:
   model = map[verdict.executor_tier]
   codex.run(prompt=deepen_prompt(item), model=model, effort=verdict.effort)
 ```
 
-### Claude (Claude Code / Agent SDK)
+### Claude
 
 ```yaml
 # adapters/claude.yaml
-classifier: typesafe/jev-1.13
+classifier: typesafe native (jev-latest)
 routing:
-  fast:    claude-opus LOW     # lane rápida del host
-  default: claude-opus high    # default del proyecto
-  strong:  claude-fable medium # máximo razonamiento
+  fast:    claude-opus low
+  default: claude-opus high
+  strong:  claude-fable medium
 ```
 
-```text
-verdict = jev.decide(...)
-if profundizar:
-  Task/subagent(model=map[tier], prompt=..., max_turns=effort_to_turns(effort))
-```
-
-### Grok (Grok Bot / xAI)
+### Grok
 
 ```yaml
 # adapters/grok.yaml
-classifier: typesafe/jev-1.13
+classifier: typesafe native (jev-latest)
 routing:
-  fast:    grok-fast           # o el modelo ligero disponible en el host
-  default: grok                # agente principal (Master)
-  strong:  grok-reasoning      # o cloud agent con más budget
+  fast:    grok-fast
+  default: grok
+  strong:  grok-reasoning
 ```
 
-En Grok Bot hoy: `fast/default` suelen ser el mismo host con distinto **effort de tools**; `strong` puede ser un cloud agent / subagente con más presupuesto. El mapa documenta la intención aunque el runtime no cambie de pesos cada vez.
+On Grok Bot today, `fast`/`default` are often the same host with different tool depth; `strong` may mean a higher-budget cloud/subagent when available.
 
-### Kimi (Moonshot)
+### Kimi
 
 ```yaml
 # adapters/kimi.yaml
-classifier: typesafe/jev-1.13
+classifier: typesafe native (jev-latest)
 routing:
   fast:    kimi-fast
   default: kimi
-  strong:  kimi-thinking       # lane con más reasoning si el producto lo expone
+  strong:  kimi-thinking
 ```
 
-Misma forma: Jev → tier → `kimi.run(model=...)`.
+## Rules that do not change
 
-## Reglas que no cambian
+1. Classifier = **Jev** (not another triage model).
+2. Never auto-send.
+3. `bot` is a lane label, not an automatic handoff.
+4. Missing API key → manual board; do not invent scores.
+5. Model maps live in the **host/adapter**, not inside Jev.
 
-1. Clasificador = **Jev** (no otro modelo de triage).
-2. Nunca auto-send.
-3. `bot` es label de lane, no handoff automático.
-4. Si falta `OPENROUTER_API_KEY`, tablero manual sin inventar scores.
-5. El mapa de modelos vive en el **host/adapter**, no hardcodeado en Jev.
+## How to test
 
-## Cómo probar
-
-1. Un ítem ruido → `ignorar`.
-2. Un FYI → `anotar`.
-3. Un ticket con acción clara → `profundizar` + `fast` o `default`.
-4. Un caso ambiguo/cliente → `strong` + pre-send si hay draft.
+1. Noise item → `ignorar`
+2. FYI → `anotar`
+3. Ticket with a clear action → `profundizar` + `fast` or `default`
+4. Ambiguous / client-sensitive → `strong` + pre-send if there is a draft

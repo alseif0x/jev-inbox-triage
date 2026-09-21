@@ -1,0 +1,18 @@
+# TypeSafe native System One API (preferred classifier backend)
+# Docs: https://docs.typesafe.ai/introduction
+# API:  https://docs.typesafe.ai/api
+classifier:
+  provider: typesafe
+  endpoint: https://api.typesafe.ai/v1/systemone
+  model: jev-latest
+  auth:
+    env: TYPESAFE_API_KEY
+    header: "Authorization: Bearer $TYPESAFE_API_KEY"
+# Same question schema as SKILL.md (choice / score / noul)
+# Example:
+# POST /v1/systemone
+# {
+#   "state": "<short inbox item state>",
+#   "model": "jev-latest",
+#   "questions": { ... depth, bot, urgency, effort, executor_tier ... }
+# }
