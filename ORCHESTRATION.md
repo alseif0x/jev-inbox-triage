@@ -58,9 +58,9 @@ Sustituye los IDs por los que tu cuenta tenga habilitados. La idea es el **mapa*
 # adapters/codex.yaml
 classifier: typesafe/jev-1.13   # OpenRouter Decisions — fijo
 routing:
-  fast:    gpt-5-mini          # o el “mini/fast” de Codex que uses
-  default: gpt-5               # turno normal del agente
-  strong:  o3                  # o el reasoning alto de la cuenta
+  fast:    gpt-5.6 luna high   # lane rápida Codex
+  default: gpt-5.6 luna max    # turno normal del agente
+  strong:  astra low           # máximo / reasoning lane
 ```
 
 Pseudocódigo:
